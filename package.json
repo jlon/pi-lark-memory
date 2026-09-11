@@ -1,0 +1,27 @@
+{
+  "name": "pi-lark-memory",
+  "version": "0.1.0",
+  "description": "Mirror Pi Hermes memory (target=memory) to a Lark/Feishu Base with remote search",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "lark",
+    "feishu",
+    "memory",
+    "hermes"
+  ],
+  "license": "MIT",
+  "pi": {
+    "extensions": [
+      "index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --test test/lib.test.mjs"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}
