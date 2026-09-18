@@ -139,10 +139,30 @@ export function extractRecords(envelope) {
   const data = envelope?.data;
   if (Array.isArray(data)) return data;
   if (!data || typeof data !== "object") return [];
-  for (const candidate of [data.items, data.records, data.tables, data.data]) {
+  for (const candidate of [data.items, data.records, data.tables]) {
     if (Array.isArray(candidate)) return candidate;
   }
+  if (Array.isArray(data.data)) return materializeMatrix(data);
   return [];
+}
+
+// `lark-cli base +record-list/search --format json` returns a raw matrix: the
+// rows in `data.data`, the column names in `data.fields` and the record ids in
+// `data.record_id_list`. Without unzipping it every row stays an array, field
+// lookups return undefined and sync degrades to create-only.
+function materializeMatrix(data) {
+  const fields = Array.isArray(data.fields) ? data.fields : null;
+  const recordIds = Array.isArray(data.record_id_list) ? data.record_id_list : [];
+  if (!fields) return data.data;
+  return data.data.map((row, index) => {
+    if (!Array.isArray(row)) return row;
+    const values = {};
+    fields.forEach((name, column) => {
+      values[name] = row[column] ?? null;
+    });
+    const recordId = recordIds[index];
+    return typeof recordId === "string" && recordId ? { record_id: recordId, fields: values } : { fields: values };
+  });
 }
 
 export function hasMoreRecords(envelope) {
@@ -212,7 +232,16 @@ export function planSync(snapshots, remoteRecords, options = {}) {
 }
 
 function remoteMatchesSnapshot(remote, snapshot) {
-  return Object.entries(snapshotFields(snapshot)).every(([field, value]) => getRecordField(remote, field) === value);
+  return Object.entries(snapshotFields(snapshot)).every(([field, value]) =>
+    fieldValueEquals(getRecordField(remote, field), value));
+}
+
+// Lark returns empty text cells as null and numbers as numbers, so compare
+// normalized strings instead of strict equality to avoid rewriting unchanged
+// records on every sync.
+function fieldValueEquals(remoteValue, expectedValue) {
+  const normalize = (value) => (value === null || value === undefined ? "" : String(value));
+  return normalize(remoteValue) === normalize(expectedValue);
 }
 
 export function formatSearchResults(query, records, limit = 10) {
